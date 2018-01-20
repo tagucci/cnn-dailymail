@@ -1,6 +1,6 @@
 This code produces the non-anonymized version of the CNN / Daily Mail summarization dataset, as used in the ACL 2017 paper *[Get To The Point: Summarization with Pointer-Generator Networks](https://arxiv.org/pdf/1704.04368.pdf)*.
 
-This is a modified scripts to output raw text as opposed to tensorflow binaries.
+***This is a modified scripts to obtain raw texts instead of tensorflow binaries.***
 
 # Instructions
 
@@ -26,7 +26,7 @@ text
 PTBTokenizer tokenized 5 tokens at 68.97 tokens per second.
 ```
 
-## 3. Process into .bin and vocab files
+## 3. Process into .txt and vocab files
 Run
 ```
 python make_datafiles.py /path/to/cnn/stories /path/to/dailymail/stories
@@ -40,6 +40,29 @@ This script will do several things:
 
 - All text files  saved in newly-created `finished_files` directory. There will be `{train/val/test}_{article/abstract}.txt` in that directory. This text format is written each stories article/abstract line by line. This allows you to quickly try open source packages like *[OpenNMT](http://opennmt.net/)* to train models.
 
+- The original data size is `train: 287,226`, `val: 13,368`, `test: 11,490` as described in the paper. *However, `train: 287,226` because train dataset contains 114 empty articles.*
+
 - In addition, `train/val/test` directories will be created in `finished_files`. In each directory, stories of article and abstract are placed in `article/abstract` directories. Both of them are saved line by line. Considering extractive summarization methods, this may be convenient.
 
 - Additionally, a `vocab` file is created from the training data. This is also placed in `finished_files`.
+
+### Extra (Lead-3 baseline result)
+
+I evaluate lead-3 baseline as *[See's paper](https://arxiv.org/pdf/1704.04368.pdf)* showed.
+Instead of using *[pyrouge](https://pypi.python.org/pypi/pyrouge/0.1.3)* as the author used, I use *[pythonrouge](https://github.com/tagucci/pythonrouge)* to evaluate ROUGE.
+***While I got same ROUGE scores of pointer-generator / pointer-generator+coverage models by using test-output downloaded from author's *[pointer-generator repository]( https://github.com/abisee/pointer-generator)*, lead-3 baseline result is slightly different.***
+
+If you want to evaluate lead-3 baseline, `eval_rouge = True` in line 19 of `make_datafiles.py`. You also need to install pythonrouge package.
+```
+# install pythonrouge
+pip install git+https://github.com/tagucci/pythonrouge.git
+```
+
+#### ROUGE Scores
+
+
+|                                          | ROUGE-1   | ROUGE-2   | ROUGE-L   |
+|------------------------------------------|-----------|-----------|-----------|
+| lead-3 baseline (Nallapati et al., 2017) | 39.2      | 15.7      | 35.5      |
+| lead-3 baseline (See et al., 2017)       | **40.34** | **17.70** | **36.57** |
+| lead-3 baseline (this repository)        | 40.24     | **17.70** | 36.45     |
