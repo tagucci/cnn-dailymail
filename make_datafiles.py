@@ -15,6 +15,8 @@ END_TOKENS = ['.', '!', '?', '...', "'", "`", '"',dm_single_close_quote, dm_doub
 # We use these to separate the summary sentences in the .bin datafiles
 SENTENCE_START = '<s>'
 SENTENCE_END = '</s>'
+# Evaluate ROUGE score of test-set
+eval_rouge = False
 
 all_train_urls = "url_lists/all_train.txt"
 all_val_urls = "url_lists/all_val.txt"
@@ -122,7 +124,8 @@ def get_art_abs(story_file):
     article = '\n'.join(article_lines)
     abstract = '\n'.join(highlights)
 
-    return article, abstract
+    # Article_lines is used when evaluating LEAD
+    return article, abstract, article_lines
 
 
 def write_to_txt(url_file, out_file, makevocab=False):
@@ -140,6 +143,9 @@ def write_to_txt(url_file, out_file, makevocab=False):
     data_split = out_file.split('/')[-1]
     # Data list to write article & abstract to .txt file
     contents = []
+    # To evaluate ROUGE of LEAD
+    if eval_rouge and data_split == 'test':
+        lead_data = []
 
     for idx, s in enumerate(story_fnames):
         # Look in the tokenized story dirs to find the .story file corresponding to this url
@@ -155,8 +161,12 @@ def write_to_txt(url_file, out_file, makevocab=False):
             check_num_stories(dm_tokenized_stories_dir, num_expected_dm_stories)
             raise Exception("Tokenized stories directories {} and {} contain correct number of files but story file {} found in neither." % (cnn_tokenized_stories_dir, dm_tokenized_stories_dir, s))
         # Get the strings to write to .txt file
-        article, abstract = get_art_abs(story_file)
+        article, abstract, lead_sents = get_art_abs(story_file)
         contents.append([s, article, abstract])
+        # When data_split is test-set, evaluating LEAD
+        if eval_rouge and data_split == 'test':
+            # Lead-3sent
+            lead_data.append([lead_sents[:3], abstract.split('\n')])
 
         # Write the vocab to file, if applicable
         if makevocab:
@@ -211,8 +221,30 @@ def write_to_txt(url_file, out_file, makevocab=False):
             for word, count in vocab_counter.most_common(VOCAB_SIZE):
                 writer.write('{} {}\n'.format(word, count))
 
-    printLog("total files in {} : {}({} files are empty)\n".format(data_split, len(contents), empty_files))
+    printLog('total files in {} : {}({} files are empty)\n'.format(data_split, len(contents), empty_files))
     printLog("Finished writing files:\n{}\n{}\n".format(atfname, abfname))
+    if eval_rouge and data_split == 'test':
+        printLog('ROUGE evaluation start...')
+        from pythonrouge.pythonrouge import Pythonrouge
+        leads = []
+        reference = []
+        for data in lead_data:
+            lead, summary = data
+            leads.append(lead)
+            reference.append([summary])
+        rouge = Pythonrouge(summary_file_exist=False,
+                            # if you want to check setting file of ROUGE, set delete_xml=False
+                            delete_xml=True,
+                            summary=leads, reference=reference,
+                            n_gram=2, ROUGE_SU4=False, ROUGE_L=True,
+                            f_measure_only=True,
+                            stemming=True, stopwords=False,
+                            word_level=True, length_limit=False)
+        score = rouge.calc_score()
+        printLog(data_split)
+        pprint(score)
+
+
 
 
 def check_num_stories(stories_dir, num_expected):
